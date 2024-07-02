@@ -1,7 +1,5 @@
 import { from } from "solid-js";
 
-console.log("background script running");
-
 interface Rule {
    redirectType: "replace" | "wildcardReplace";
    from: string;
@@ -28,82 +26,62 @@ const policy: Policy = [
    },
 ];
 
-const rules = policy.flatMap((group) => group.rules);
+function fromWildCardSourceToRegex(source: string) {
+   const fromStr = source.replace(/\*/g, /([^\/]+)/);
+   return new RegExp(fromStr);
+}
 
-function setRules() {
-   //    chrome.declarativeNetRequest.updateDynamicRules({
-   //       removeRuleIds: [1],
-   //       addRules: [
-   //          {
-   //             id: 1,
-   //             priority: 1,
-   //             action: {
-   //                type: "redirect",
-   //                redirect: {
-   //                   regexSubstitution: "localhost://8080/\\1.css",
-   //                },
-   //             },
-   //             condition: {
-   //                regexFilter:
-   //                   "^https://login-v2\\.island\\.io/([\\w\\d]+)\\.[\\w\\d]+\\.css$",
-   //                resourceTypes: [
-   //                   "main_frame",
-   //                   "sub_frame",
-   //                   "stylesheet",
-   //                   "script",
-   //                   "image",
-   //                   "xmlhttprequest",
-   //                   "other",
-   //                ],
-   //             },
-   //          },
-   //       ],
-   //    });
+function fromWildCardTargetToRegex(targetString: string) {
+   let count = 0;
+   return targetString.replace(/\*/g, () => {
+      count += 1;
+      return `$${count}`;
+   });
+}
 
-   chrome.webRequest.onBeforeRequest.addListener(
+const rules = policy
+   .flatMap((group) => group.rules)
+   .map((rule) => {
+      if (rule.redirectType === "wildcardReplace") {
+         return {
+            ...rule,
+            from: fromWildCardSourceToRegex(rule.from),
+            to: fromWildCardTargetToRegex(rule.to),
+         };
+      }
+      return rule;
+   });
+
+let listener
+
+function setRedirects() {
+   chrome.webRequest.onBeforeRequest.removeListener(listener)
+
+   listener = chrome.webRequest.onBeforeRequest.addListener(
       function (details) {
          const url = new URL(details.url);
-
-         if (!url.hostname === "login-v2.island.io") {
-            return;
+         for (const rule of rules) {
+            if(url.href.match(rule.from)){
+               const newUrl = url.href.replace(rule.from, rule.to);
+               return { redirectUrl: newUrl }   ;
+            }
          }
-         console.log(path);
-         const newPath = url.pathname.replace(
-            /([^/]+)\.[^/]+\.css$/,
-            "/styles.css"
-         );
-         console.log(newPath);
-         const newUrl = `http://localhost:8080${newPath}`;
-
-         return { redirectUrl: newUrl };
-      },
-      {
-         urls: ["*://login-v2.island.io/styles.*.css"],
-         types: [
-            "main_frame",
-            "sub_frame",
-            "stylesheet",
-            "script",
-            "image",
-            "xmlhttprequest",
-            "other",
-         ],
-      },
+      }
+      {urls: ["<all_urls>"]},
       ["blocking"]
-   );
+   )
 }
 
 chrome.runtime.onStartup.addListener(() => {
    console.log("onInstalled....");
-   setRules();
+   setRedirects();
 });
 1;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    console.log("listening to message: ", message);
    if (message.action === "updateRules") {
-      setRules();
+      setRedirects();
       sendResponse({ status: "Rules updated" });
-      setRules();
    }
 });
