@@ -1,0 +1,21 @@
+[
+   {
+      "id": 1,
+      "priority": 1,
+      "action": {
+         "type": "redirect",
+         "redirect": {
+            "transform": {
+               "host": "localhost",
+               "port": "3000",
+               "path": "/\\1.css"
+            }
+         }
+      },
+      "condition": {
+         "urlFilter": "https://login-v2.island.io/*",
+         "regexFilter": "https://login-v2.island.io/([^/]+).[^/]+.css$",
+         "resourceTypes": ["*"]
+      }
+   }
+]

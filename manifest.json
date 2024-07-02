@@ -1,0 +1,28 @@
+{
+   "manifest_version": 3,
+   "name": "CRXJS Solid Vite Example",
+   "version": "1.0.0",
+   "action": { "default_popup": "index.html" },
+   "permissions": [
+      "declarativeNetRequest",
+      "declarativeNetRequestWithHostAccess",
+      "declarativeNetRequestFeedback",
+      "webRequest",
+      "webRequestBlocking",
+      "host_permissions"
+   ],
+   "host_permissions": ["*://*/*"],
+   "background": {
+      "service_worker": "src/background.ts",
+      "type": "module"
+   },
+   "declarative_net_request": {
+      "rule_resources": [
+         {
+            "id": "ruleset_1",
+            "enabled": true,
+            "path": "rules.json"
+         }
+      ]
+   }
+}
