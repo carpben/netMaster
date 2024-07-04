@@ -1,5 +1,3 @@
-import { from } from "solid-js";
-
 interface Rule {
    redirectType: "replace" | "wildcardReplace";
    from: string;
@@ -27,16 +25,8 @@ const policy: Policy = [
 ];
 
 function fromWildCardSourceToRegex(source: string) {
-   const fromStr = source.replace(/\*/g, /([^\/]+)/);
+   const fromStr = source.replaceAll("*", "([^/]+)");
    return new RegExp(fromStr);
-}
-
-function fromWildCardTargetToRegex(targetString: string) {
-   let count = 0;
-   return targetString.replace(/\*/g, () => {
-      count += 1;
-      return `$${count}`;
-   });
 }
 
 const rules = policy
@@ -46,30 +36,31 @@ const rules = policy
          return {
             ...rule,
             from: fromWildCardSourceToRegex(rule.from),
-            to: fromWildCardTargetToRegex(rule.to),
          };
       }
       return rule;
    });
 
-let listener
+let listener: (details: chrome.webRequest.WebRequestBodyDetails) => void;
 
 function setRedirects() {
-   chrome.webRequest.onBeforeRequest.removeListener(listener)
+   chrome.webRequest.onBeforeRequest.removeListener(listener);
 
-   listener = chrome.webRequest.onBeforeRequest.addListener(
-      function (details) {
-         const url = new URL(details.url);
-         for (const rule of rules) {
-            if(url.href.match(rule.from)){
-               const newUrl = url.href.replace(rule.from, rule.to);
-               return { redirectUrl: newUrl }   ;
-            }
+   listener = (details) => {
+      const url = new URL(details.url);
+      for (const rule of rules) {
+         if (url.href.match(rule.from)) {
+            const newUrl = url.href.replace(rule.from, rule.to);
+            return { redirectUrl: newUrl };
          }
       }
-      {urls: ["<all_urls>"]},
+   };
+
+   chrome.webRequest.onBeforeRequest.addListener(
+      listener,
+      { urls: ["<all_urls>"] },
       ["blocking"]
-   )
+   );
 }
 
 chrome.runtime.onStartup.addListener(() => {
